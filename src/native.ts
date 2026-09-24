@@ -1,6 +1,7 @@
 import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core';
 
 export interface NativeRecording {
+  mode: 'screen' | 'audio';
   /** App-private original MP4 or M4A file. */
   path: string;
   /** App-private 16 kHz mono PCM WAV, generated locally by Android. */
@@ -16,7 +17,11 @@ export interface NativeRecording {
 export interface NativeRecorderPlugin {
   start(options: { mode: 'screen' | 'audio'; microphone: true }): Promise<void>;
   stop(): Promise<NativeRecording>;
-  status(): Promise<{ recording: boolean; processing: boolean; duration: number }>;
+  status(): Promise<{ recording: boolean; processing: boolean; duration: number; mode: 'screen' | 'audio' }>;
+  /** Completed recordings not yet acknowledged as safely stored by the UI. */
+  pending(): Promise<{ recordings: NativeRecording[] }>;
+  /** Delete only this native recording's files after IndexedDB storage succeeds. */
+  acknowledge(options: { path: string }): Promise<void>;
   addListener(event: 'recordingStopped', listener: (recording: NativeRecording) => void): Promise<PluginListenerHandle>;
   addListener(event: 'recordingError', listener: (error: { message: string }) => void): Promise<PluginListenerHandle>;
 }

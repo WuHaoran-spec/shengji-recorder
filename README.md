@@ -8,6 +8,8 @@
 
 [下载 Windows / Android 安装包](https://github.com/WuHaoran-spec/shengji-recorder/releases) · [构建状态](https://github.com/WuHaoran-spec/shengji-recorder/actions) · [问题反馈](https://github.com/WuHaoran-spec/shengji-recorder/issues)
 
+![声记工作台](docs/screenshot.png)
+
 ## 平台与功能
 
 | 功能 | Windows 10/11 x64 | Android 7.0+ |
@@ -45,8 +47,8 @@ Get-FileHash .\ShengJi-0.1.0-windows-x64-portable.exe -Algorithm SHA256
 
 ## 当前边界
 
-- 使用 Whisper tiny 多语言量化模型，优先控制安装体积和设备负担。中文、人名、数字、方言、重叠讲话与嘈杂环境中的准确率有限；“逐字稿”是自动识别结果，不保证逐字准确。
-- 单次录制和导入按 **30 分钟**上限设计。转写需要在内存中解码音频，低内存设备请从短录音开始。
+- 使用 Whisper small 多语言量化模型，优先保证中文识别效果。模型、运行时等离线资源约 273 MiB，安装包较大；手机识别可能慢于录音时长，低内存设备可能无法完成识别。中文、人名、数字、方言、重叠讲话与嘈杂环境中的准确率有限；“逐字稿”是自动识别结果，不保证逐字准确。
+- 单次录制按 **30 分钟或 200 MB** 上限设计，先到即保存；导入最多 30 分钟、150 MB。转写需要在内存中解码音频，低内存设备请从短录音开始。
 - 不是实时转写；不会自动区分说话人。时间戳是识别估计值。
 - Android 录屏只采集麦克风声音；应用内部回放声音尚未实现。系统受保护画面可能呈黑屏。
 - 当前不提供后台离线转写保证；录制服务与转写界面是不同部分。转写期间切换应用、锁屏或被系统回收可能中断任务。
@@ -113,6 +115,12 @@ git push origin v0.1.0
 音视频与逐字稿保存在设备本地，不内置遥测、登录、云端识别或自动更新服务。导出／分享之后，文件由用户选择的目标应用管理。桌面渲染进程禁用 Node 集成，启用沙箱、上下文隔离、内容安全策略，并阻断远程 HTTP(S)／WebSocket 请求。
 
 请只录制你有权录制的内容，并在适当时告知参与者。详见 [隐私与数据说明](docs/PRIVACY.md)、[安全反馈](docs/SECURITY.md)、[依赖与模型许可](docs/THIRD_PARTY.md)。
+
+## 验证
+
+`npm test` 检查 WAV 解码、采样、分段、时间戳和 DOCX 内容；`npm run test:e2e` 检查导入、真实 MediaRecorder（合成麦克风）、中文编辑/Word 导出、持久化与手机布局。Windows 使用已安装的 Edge；其他开发环境先执行 `npx playwright install chromium`。
+
+`npm run test:desktop` 检查 Electron 本地资源、沙箱、外网阻断、录制来源授权边界。可以设置 `SHENGJI_TEST_AUDIO` 为本机 WAV 路径，检查完整的离线识别与 Word 导出。Android 编译已通过 GitHub Actions；仍需在实际手机上验证厂商权限弹窗、后台录制、系统停止和分享行为，详见 [Android 验收](android/README.md)。
 
 ## 许可证
 

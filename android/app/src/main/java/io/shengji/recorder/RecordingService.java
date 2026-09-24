@@ -41,6 +41,8 @@ public class RecordingService extends Service {
     public static volatile boolean recording;
     public static volatile boolean processing;
     public static volatile JSObject lastResult;
+    public static volatile String activePath;
+    public static volatile String captureMode = "audio";
     private static volatile long startedAt;
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
@@ -51,6 +53,8 @@ public class RecordingService extends Service {
     private boolean screen;
     private boolean finishing;
     private boolean recorderStarted;
+    private boolean fileLimitReached;
+    private final Runnable durationLimit = this::finishRecording;
     private final MediaProjection.Callback projectionCallback = new MediaProjection.Callback() {
         @Override public void onStop() { finishRecording(); }
     };
@@ -70,6 +74,7 @@ public class RecordingService extends Service {
         if (!START.equals(intent.getAction()) || recording || processing) return START_NOT_STICKY;
         try {
             screen = "screen".equals(intent.getStringExtra("mode"));
+            captureMode = screen ? "screen" : "audio";
             startRecordingForeground();
             prepareRecorder(intent);
         } catch (Exception error) {
@@ -92,7 +97,7 @@ public class RecordingService extends Service {
         Notification notification = new NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
             .setContentTitle(screen ? "声记正在录屏和录音" : "声记正在录音")
-            .setContentText("音视频仅保存在本机。点击停止后自动离线转写。")
+            .setContentText("音视频仅保存在本机。点击停止后生成本机音频文件。")
             .setContentIntent(openAction)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -108,10 +113,12 @@ public class RecordingService extends Service {
     @SuppressWarnings("deprecation")
     private void prepareRecorder(Intent intent) throws Exception {
         finishing = false;
+        fileLimitReached = false;
         lastResult = null;
         File directory = new File(getFilesDir(), "recordings");
         if (!directory.isDirectory() && !directory.mkdirs()) throw new IllegalStateException("无法创建本机录制目录");
         output = new File(directory, UUID.randomUUID() + (screen ? ".mp4" : ".m4a"));
+        activePath = output.getAbsolutePath();
         recorder = Build.VERSION.SDK_INT >= 31 ? new MediaRecorder(this) : new MediaRecorder();
         recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
         if (screen) recorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
@@ -121,6 +128,7 @@ public class RecordingService extends Service {
         recorder.setAudioChannels(1);
         recorder.setAudioEncodingBitRate(128000);
         recorder.setOutputFile(output.getAbsolutePath());
+        recorder.setMaxFileSize(200L * 1024 * 1024);
         int width = 0, height = 0, density = getResources().getDisplayMetrics().densityDpi;
         if (screen) {
             WindowManager window = (WindowManager) getSystemService(WINDOW_SERVICE);
@@ -138,9 +146,15 @@ public class RecordingService extends Service {
             recorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
             recorder.setVideoSize(width, height);
             recorder.setVideoFrameRate(30);
-            recorder.setVideoEncodingBitRate(4000000);
+            recorder.setVideoEncodingBitRate(1500000);
         }
         recorder.setOnErrorListener((value, what, extra) -> main.post(this::finishRecording));
+        recorder.setOnInfoListener((value, what, extra) -> {
+            if (what == MediaRecorder.MEDIA_RECORDER_INFO_MAX_FILESIZE_REACHED) {
+                fileLimitReached = true;
+                main.post(this::finishRecording);
+            }
+        });
         recorder.prepare();
         if (screen) {
             Intent data = Build.VERSION.SDK_INT >= 33
@@ -159,12 +173,15 @@ public class RecordingService extends Service {
         recorderStarted = true;
         startedAt = SystemClock.elapsedRealtime();
         recording = true;
+        // Native timer also runs while the WebView is suspended in the background.
+        main.postDelayed(durationLimit, 30 * 60 * 1000L);
         if (listener != null) listener.onStarted();
     }
 
     private void finishRecording() {
         if (finishing || recorder == null) return;
         finishing = true;
+        main.removeCallbacks(durationLimit);
         double duration = elapsedSeconds();
         recording = false;
         processing = true;
@@ -173,8 +190,12 @@ public class RecordingService extends Service {
             recorder.stop();
             recorderStarted = false;
         } catch (Exception error) {
-            fail("录制太短或被系统中断，无法生成有效文件。请至少录制一秒后停止。");
-            return;
+            // MediaRecorder may already have stopped asynchronously at its file
+            // limit. Preserve that completed file and let extraction validate it.
+            if (!fileLimitReached || output == null || output.length() == 0) {
+                fail("录制太短或被系统中断，无法生成有效文件。请至少录制一秒后停止。");
+                return;
+            }
         }
         releaseCapture();
         final File source = output;
@@ -182,6 +203,7 @@ public class RecordingService extends Service {
         worker.execute(() -> {
             JSObject result = new JSObject();
             result.put("path", source.getAbsolutePath());
+            result.put("mode", isScreen ? "screen" : "audio");
             result.put("duration", duration);
             result.put("mimeType", isScreen ? "video/mp4" : "audio/mp4");
             File audio = source;
@@ -199,9 +221,17 @@ public class RecordingService extends Service {
                 result.put("audioPath", audio.getAbsolutePath());
                 result.put("warning", "原始录制已保存，音频转换失败：" + error.getMessage());
             }
+            try {
+                // Commit metadata before notifying JavaScript, so an Activity recreation
+                // or process restart cannot lose a completed, unacknowledged recording.
+                RecordingFiles.save(this, result);
+            } catch (Exception error) {
+                result.put("warning", "原始录制已保存，但恢复信息写入失败，请立即导出或保存到资料库：" + error.getMessage());
+            }
             main.post(() -> {
                 lastResult = result;
                 processing = false;
+                activePath = null;
                 if (listener != null) listener.onStopped(result);
                 stopForeground(STOP_FOREGROUND_REMOVE);
                 stopSelf();
@@ -210,13 +240,19 @@ public class RecordingService extends Service {
     }
 
     private void releaseCapture() {
-        if (display != null) { display.release(); display = null; }
+        if (display != null) {
+            try { display.release(); } catch (RuntimeException ignored) { }
+            display = null;
+        }
         if (projection != null) {
-            projection.unregisterCallback(projectionCallback);
-            projection.stop();
+            try { projection.unregisterCallback(projectionCallback); } catch (RuntimeException ignored) { }
+            try { projection.stop(); } catch (RuntimeException ignored) { }
             projection = null;
         }
-        if (recorder != null) { recorder.release(); recorder = null; }
+        if (recorder != null) {
+            try { recorder.release(); } catch (RuntimeException ignored) { }
+            recorder = null;
+        }
         recorderStarted = false;
     }
 
@@ -224,6 +260,8 @@ public class RecordingService extends Service {
         recording = false;
         processing = false;
         finishing = true;
+        main.removeCallbacks(durationLimit);
+        activePath = null;
         releaseCapture();
         if (listener != null) listener.onError(message);
         stopForeground(STOP_FOREGROUND_REMOVE);
@@ -231,9 +269,10 @@ public class RecordingService extends Service {
     }
 
     @Override public void onDestroy() {
-        if (recorderStarted) {
-            try { recorder.stop(); } catch (RuntimeException ignored) { }
-        }
+        // Graceful service destruction can still finalize the current file. A hard
+        // process kill provides no callback and cannot promise MP4 recovery.
+        if (recorderStarted && !finishing) finishRecording();
+        main.removeCallbacks(durationLimit);
         releaseCapture();
         recording = false;
         worker.shutdown();

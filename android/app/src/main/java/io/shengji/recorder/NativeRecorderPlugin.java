@@ -139,7 +139,23 @@ public class NativeRecorderPlugin extends Plugin implements RecordingService.Lis
         result.put("recording", RecordingService.recording);
         result.put("processing", RecordingService.processing);
         result.put("duration", RecordingService.elapsedSeconds());
+        result.put("mode", RecordingService.captureMode);
         call.resolve(result);
+    }
+
+    @PluginMethod public void pending(PluginCall call) {
+        JSObject result = new JSObject();
+        result.put("recordings", RecordingFiles.pending(getContext()));
+        call.resolve(result);
+    }
+
+    @PluginMethod public void acknowledge(PluginCall call) {
+        try {
+            RecordingFiles.acknowledge(getContext(), call.getString("path"));
+            call.resolve();
+        } catch (Exception error) {
+            call.reject(error.getMessage());
+        }
     }
 
     @Override public void onStarted() {

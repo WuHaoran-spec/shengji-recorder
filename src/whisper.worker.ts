@@ -2,7 +2,7 @@ import { env, pipeline } from '@huggingface/transformers';
 import { audioWindows, isSilent, offsetSegments, SAMPLE_RATE } from './audio';
 import type { Segment } from './types';
 
-const MODEL = 'Xenova/whisper-tiny';
+const MODEL = 'Xenova/whisper-small';
 const LANGUAGE_NAMES: Record<string, string> = { zh: 'chinese', en: 'english', ja: 'japanese', ko: 'korean', fr: 'french', de: 'german', es: 'spanish', ru: 'russian' };
 let busy = false;
 
@@ -39,8 +39,11 @@ self.onmessage = async (event: MessageEvent<{ audio: Float32Array; language: str
       device: 'wasm', dtype: 'q8', local_files_only: true,
       progress_callback: (info) => {
         if (info.status === 'progress') {
-          maxProgress = Math.max(maxProgress, Math.min(18, 3 + info.progress * 0.15));
-          sendProgress(maxProgress, '正在读取内置模型（不会连接互联网）');
+          const next = Math.max(maxProgress, Math.min(18, 3 + info.progress * 0.15));
+          if (next - maxProgress >= 0.5) {
+            maxProgress = next;
+            sendProgress(maxProgress, '正在读取内置模型（不会连接互联网）');
+          }
         }
       },
     });
@@ -62,7 +65,10 @@ self.onmessage = async (event: MessageEvent<{ audio: Float32Array; language: str
     self.postMessage({ type: 'complete', segments });
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
-    self.postMessage({ type: 'error', message: `离线转写失败：${detail}。请确认使用包含模型的完整安装包；开发环境先运行 npm run model:prepare。` });
+    const memoryError = /out of memory|memory allocation|allocate memory|out of bounds|bad_alloc|allocation failed/i.test(detail);
+    self.postMessage({ type: 'error', message: memoryError
+      ? '设备可用内存不足，无法运行离线模型。请关闭其他应用后重试，或在电脑上转写这段录音。'
+      : `离线转写失败：${detail}。请确认使用包含模型的完整安装包；开发环境先运行 npm run model:prepare。` });
   }
 };
 

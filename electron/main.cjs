@@ -76,7 +76,11 @@ function installPermissions() {
   ses.setPermissionRequestHandler((contents, permission, callback, details) => {
     const trusted = contents === mainWindow?.webContents && isAppUrl(details.requestingUrl || contents.getURL());
     const audioOnly = permission === 'media' && details.mediaTypes?.length > 0 && details.mediaTypes.every(type => type === 'audio');
-    callback(Boolean(trusted && audioOnly));
+    // Electron reports getDisplayMedia as `media` with an empty mediaTypes list.
+    // Camera requests contain `video` and remain denied.
+    const displayRequest = permission === 'display-capture' || (permission === 'media' && details.mediaTypes?.length === 0);
+    const explicitScreenChoice = displayRequest && selectedSource && selectedSource.expires > Date.now();
+    callback(Boolean(trusted && (audioOnly || explicitScreenChoice)));
   });
   ses.setDisplayMediaRequestHandler(async (request, callback) => {
     const choice = selectedSource;
@@ -112,6 +116,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1320, height: 880, minWidth: 860, minHeight: 620,
     title: '声记 · 离线录音与逐字稿', backgroundColor: '#f5f6fa',
+    icon: path.join(__dirname, 'icon.ico'),
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -127,7 +132,9 @@ function createWindow() {
 }
 
 // Smoke tests use an isolated directory and never touch the user's recording library.
-if (process.env.SHENGJI_TEST_USER_DATA && !app.isPackaged) app.setPath('userData', process.env.SHENGJI_TEST_USER_DATA);
+if (process.env.SHENGJI_TEST_USER_DATA && process.argv.includes('--shengji-smoke-test')) {
+  app.setPath('userData', process.env.SHENGJI_TEST_USER_DATA);
+}
 app.whenReady().then(() => {
   protocol.handle('shengji', serveAsset);
   installPermissions();

@@ -17,7 +17,7 @@
     "desktop": "electron .",
     "dist:win": "electron-builder --win portable",
     "android:sync": "cap sync android",
-    "prebuild": "node electron/prepare-notices.cjs",
+    "prebuild": "node scripts/prepare-model.mjs --verify && node electron/prepare-notices.cjs",
     "test:desktop": "node electron/smoke.cjs"
   },
   "dependencies": {
@@ -41,6 +41,7 @@
     "@vitejs/plugin-react": "6.1.1",
     "electron": "44.4.5",
     "electron-builder": "26.15.3",
+    "fflate": "^0.8.3",
     "typescript": "~5.9.3",
     "vite": "8.3.1",
     "vitest": "5.0.1"

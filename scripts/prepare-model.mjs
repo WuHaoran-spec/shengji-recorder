@@ -10,13 +10,13 @@ import { pipeline } from 'node:stream/promises';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
-const model = 'Xenova/whisper-tiny';
-const revision = '5332fcc35e32a33b86612b9a57a89be7906102b1';
+const model = 'Xenova/whisper-small';
+const revision = '2d67713f236afa48a18992566e7647f6ca848e13';
 // HF Git blob IDs for ordinary files; SHA-256 LFS IDs for model weights.
-// Verified from https://huggingface.co/api/models/Xenova/whisper-tiny/revision/<revision>?blobs=true
+// Verified from https://huggingface.co/api/models/Xenova/whisper-small/revision/<revision>?blobs=true
 const files = [
-  ['config.json', 2248, 'dea913aa8ec7d53db029e97c97a766d534c8da04'],
-  ['generation_config.json', 3716, '72e54ad7340e05287aa731f9d8556b5368be3fe0'],
+  ['config.json', 2232, 'a239fdd538b77d3c496d13d085848eca67fe993a'],
+  ['generation_config.json', 3837, '66f96818620f7b67c276aed4a35bedc4f6986dc3'],
   ['preprocessor_config.json', 339, '91876762a536a746d268353c5cba57286e76b058'],
   ['tokenizer.json', 2480466, '1e95340ff836fad1b5932e800fb7b8c5e6d78a74'],
   ['tokenizer_config.json', 282683, 'd13b786c04765fb1a06492b53587752cd67665ea'],
@@ -25,9 +25,9 @@ const files = [
   ['vocab.json', 1036584, '90e797dd4fd05d9dea443d702ca06be2463c5f2f'],
   ['merges.txt', 493869, '6038932a2a1f09a66991b1c2adae0d14066fa29e'],
   ['normalizer.json', 52666, 'dd6ae819ad738ac1a546e9f9282ef325c33b9ea0'],
-  ['README.md', 1160, '00624f9b03a4d0677dd1b06005754ca8c4d847c7'],
-  ['onnx/encoder_model_quantized.onnx', 10124910, 'fd9d995b9dcb0520f0dbf6cf68651af639fc385f594d9d876e69ca2802dc438e'],
-  ['onnx/decoder_model_merged_quantized.onnx', 30727765, '6c0c125986b007d2e3734bec84c18bda0152071b90b87fadac6d7764499927a0'],
+  ['README.md', 1163, '220a86a80a79192832df3502a91d5faae6104332'],
+  ['onnx/encoder_model_quantized.onnx', 92324809, '969f5ac12974340386bf7a02ea6626003e5e2dee396ffc6ab0eec282bf55ba06'],
+  ['onnx/decoder_model_merged_quantized.onnx', 156780950, 'fcfc6100dc7339e7507e10f8b274350be7c4f8d8b575f0293f94cc0e156d6d24'],
 ];
 const verifyOnly = process.argv.includes('--verify');
 

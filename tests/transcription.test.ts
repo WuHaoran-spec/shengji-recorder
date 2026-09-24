@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { inflateRawSync } from 'node:zlib';
 import { audioWindows, decodeAudio, decodeWav, isSilent, offsetSegments, resampleMono, SAMPLE_RATE } from '../src/audio';
 import { exportDocx, exportTxt, formatTimestamp } from '../src/export';
 
@@ -76,5 +77,21 @@ describe('transcript timing and document export', () => {
     const packageText = new TextDecoder().decode(bytes);
     expect(packageText).toContain('word/document.xml');
     expect(packageText).toContain('[Content_Types].xml');
+    // Inspect the actual XML through the ZIP directory, including Chinese and timing.
+    const zip = Buffer.from(bytes);
+    let xml = '';
+    for (let at = 0; at + 46 < zip.length; at++) {
+      if (zip.readUInt32LE(at) !== 0x02014b50) continue;
+      const nameLength = zip.readUInt16LE(at + 28);
+      if (zip.subarray(at + 46, at + 46 + nameLength).toString() !== 'word/document.xml') continue;
+      const length = zip.readUInt32LE(at + 20), local = zip.readUInt32LE(at + 42);
+      const start = local + 30 + zip.readUInt16LE(local + 26) + zip.readUInt16LE(local + 28);
+      const content = zip.subarray(start, start + length);
+      xml = (zip.readUInt16LE(at + 10) === 8 ? inflateRawSync(content) : content).toString();
+      break;
+    }
+    expect(xml).toContain('会议记录');
+    expect(xml).toContain('这是逐字稿。');
+    expect(xml).toContain('[00:00:01–00:00:05]');
   });
 });

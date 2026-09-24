@@ -9,7 +9,7 @@
 | Capacitor | Android 应用桥接、文件与分享 | [MIT](https://github.com/ionic-team/capacitor/blob/main/LICENSE) |
 | Transformers.js | 浏览器内模型推理与识别流水线 | [Apache-2.0](https://github.com/huggingface/transformers.js/blob/main/LICENSE) |
 | ONNX Runtime Web | 本地 WebAssembly 推理引擎 | [MIT](https://github.com/microsoft/onnxruntime/blob/main/LICENSE) 与其第三方声明 |
-| Xenova/whisper-tiny | Whisper 多语言量化 ONNX 模型 | [模型页声明 Apache-2.0](https://huggingface.co/Xenova/whisper-tiny) |
+| Xenova/whisper-small | Whisper 多语言量化 ONNX 模型 | [模型页声明 Apache-2.0](https://huggingface.co/Xenova/whisper-small) |
 | OpenAI Whisper | 上述模型的上游研究与原始权重 | [MIT](https://github.com/openai/whisper/blob/main/LICENSE) |
 | docx | 本机生成 Word 文档 | [MIT](https://github.com/dolanmiu/docx/blob/master/LICENSE) |
 | idb | 本机 IndexedDB 存储 | [ISC](https://github.com/jakearchibald/idb/blob/main/LICENSE) |
@@ -17,9 +17,11 @@
 
 ## 模型固定版本
 
-- 模型：`Xenova/whisper-tiny`（多语言，而非 `.en` 英语专用版本）。
-- 固定仓库修订：`5332fcc35e32a33b86612b9a57a89be7906102b1`。
-- 使用量化编码器和合并解码器 ONNX 文件。ONNX 权重合计约 40.9 MB，另含分词器、配置与本地 WASM 引擎。
+- 模型：`Xenova/whisper-small`（多语言，而非 `.en` 英语专用版本）。
+- 固定仓库修订：`2d67713f236afa48a18992566e7647f6ca848e13`。
+- 使用 q8 量化编码器和合并解码器 ONNX 文件。ONNX 权重合计 249,105,759 字节（约 249.1 MB），另含分词器、配置与本地 WASM 引擎。
+- 编码器 SHA-256：`969f5ac12974340386bf7a02ea6626003e5e2dee396ffc6ab0eec282bf55ba06`。
+- 合并解码器 SHA-256：`fcfc6100dc7339e7507e10f8b274350be7c4f8d8b575f0293f94cc0e156d6d24`。
 - `npm run model:prepare` 生成 `public/offline-manifest.json`，记录文件大小与 SHA-256。安装包中可据此核对模型内容。
 - 构建时从上游下载；运行时仅加载包内文件。没有将模型权重重新训练为本项目私有模型，也没有将录音用于训练。
 

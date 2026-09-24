@@ -12,11 +12,12 @@ files:
 asar: true
 npmRebuild: false
 win:
+  icon: electron/icon.ico
   target:
     - target: portable
       arch: [x64]
   artifactName: ShengJi-${version}-windows-${arch}-portable.${ext}
-  signAndEditExecutable: false
+  signExecutable: false
 portable:
   requestExecutionLevel: user
 publish: null

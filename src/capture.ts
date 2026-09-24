@@ -45,6 +45,13 @@ export async function startCapture(mode: CaptureMode, microphone: boolean, onEnd
     });
     recorder.onerror = () => { onError('录制设备发生错误，正在保存已录制的内容。'); onEnded(); };
     if (audioRecorder !== recorder) audioRecorder.onerror = recorder.onerror;
+    if (screen?.getVideoTracks().some(track => track.readyState !== 'live')) throw new Error('屏幕共享已结束，请重新选择录制来源。');
+    if (mic?.getAudioTracks().some(track => track.readyState !== 'live')) throw new Error('麦克风已断开，请重新连接后再录制。');
+    for (const source of [screen, mic]) {
+      source?.getAudioTracks().forEach(track => track.addEventListener('ended', () => {
+        if (!finished) { onError('声音来源已断开，正在保存已有录制。'); onEnded(); }
+      }, { once: true }));
+    }
     recorder.start(1000);
     if (audioRecorder !== recorder) audioRecorder.start(1000);
     screen?.getVideoTracks().forEach(track => track.addEventListener('ended', () => { if (!finished) onEnded(); }, { once: true }));
