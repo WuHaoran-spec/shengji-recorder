@@ -1,0 +1,22 @@
+appId: io.shengji.recorder
+productName: ShengJi
+directories:
+  output: release
+files:
+  - dist/**/*
+  - electron/**/*
+  - package.json
+  - LICENSE
+  - docs/THIRD_PARTY.md
+  - '!node_modules/**/*'
+asar: true
+npmRebuild: false
+win:
+  target:
+    - target: portable
+      arch: [x64]
+  artifactName: ShengJi-${version}-windows-${arch}-portable.${ext}
+  signAndEditExecutable: false
+portable:
+  requestExecutionLevel: user
+publish: null
