@@ -1,6 +1,6 @@
 # 声记 ShengJi
 
-录屏、录音 → 本机离线逐字稿 → 可编辑的 Word 文档。
+录屏、录音 \ 本机离线逐字稿 \可编辑的 Word 文档。
 
 声记是一个 MIT 开源应用。Windows 版使用 Electron，Android 版使用 Capacitor 与原生录制服务；两端共用 React 界面和本地 Whisper 语音识别。**不需要账号、不需要 API Key，录制内容不上传云端。** 安装包附带识别模型，首次使用也不需要下载模型。
 
